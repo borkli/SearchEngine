@@ -1,0 +1,39 @@
+indexing-settings:
+  sites:
+    - url: https://www.playback.ru
+      name: PlayBack.Ru
+    - url: https://ipfran.ru/
+      name: ИПФ РАН
+
+server:
+  address: 0.0.0.0
+  port: 8080
+  compression:
+    enabled: true
+    mime-types: application/javascript, text/css, text/javascript
+  servlet:
+    session:
+      cookie:
+        http-only: true
+
+---
+
+spring:
+  datasource:
+    jdbc-url: jdbc:mysql://localhost:3306/search_engine?useUnicode=true&characterEncoding=UTF-8&useSSL=false&jdbcCompliantTruncation=false&zeroDateTimeBehavior=convertToNull&useAffectedRows=true&&autoReconnect=true
+    username: #USER_NAME
+    password: #YOUR_PASSWORD
+    driverClassName: com.mysql.cj.jdbc.Driver
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+    hibernate:
+      ddl-auto: update
+    generate-ddl: true
+    show-sql: true
+hibernate:
+  jdbc:
+    batch_size: 50
+  order_inserts: true
+  order_updates: true
