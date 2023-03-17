@@ -1,5 +1,6 @@
 package searchengine.repository;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -31,14 +32,14 @@ public interface SitePageRepository extends JpaRepository<SitePage, Long> {
             "JOIN Index i ON sp.id = i.page.id " +
             "WHERE i.lemma.id = :lemmaId"
     )
-    List<SitePage> getByLemma(Long lemmaId);
+    List<SitePage> getByLemma(Long lemmaId, Pageable pageable);
 
     @Query(
         value = "SELECT sp FROM SitePage sp " +
             "JOIN Index i ON sp.id = i.page.id " +
             "WHERE i.lemma.id = :lemmaId AND sp.id IN (:pageIds)"
     )
-    List<SitePage> getByLemma(Long lemmaId, List<Long> pageIds);
+    List<SitePage> getByLemma(Long lemmaId, List<Long> pageIds, Pageable pageable);
 
     @Query(
         value = "SELECT COUNT(*) FROM site_page WHERE site_id = :siteId",

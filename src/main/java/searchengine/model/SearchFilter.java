@@ -11,7 +11,7 @@ public class SearchFilter {
 
     private String site;
 
-    private int offset;
+    private Integer offset;
 
-    private int limit;
+    private Integer limit;
 }

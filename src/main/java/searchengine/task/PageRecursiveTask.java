@@ -1,6 +1,7 @@
 package searchengine.task;
 
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -19,13 +20,13 @@ import java.util.concurrent.RecursiveTask;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
+@Slf4j
 @AllArgsConstructor
 public class PageRecursiveTask extends RecursiveTask<Boolean> {
 
     private static final int BAD_CODE = 400;
     private static final long TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(2);
     private static final Pattern EXCESS_LINK = Pattern.compile("(png|pdf|jpg|gif|#)");
-    private static List<PageRecursiveTask> tasks = new ArrayList<>();
     private static boolean runIndexing = true;
 
     public PageRecursiveTask(Site site, String url,
@@ -77,13 +78,14 @@ public class PageRecursiveTask extends RecursiveTask<Boolean> {
                     response.statusCode(), document.html(), site.getId(), formatUrl
                 );
                 if (update < 1) {
-                    throw new RuntimeException("error_update_page");
+                    throw new ApplicationError("Страница не обновлена");
                 }
                 siteRepository.updateStatusTime(LocalDateTime.now(), site.getId());
             }
             parseChildren(document);
             SitePage page = sitePageRepository.getByPath(formatUrl, site.getId());
             if (page == null) {
+                log.error("SitePage is null");
                 throw new ApplicationError("Страница не найдена");
             }
             appendLemma(page, document);
@@ -119,17 +121,17 @@ public class PageRecursiveTask extends RecursiveTask<Boolean> {
                         jdbcRepository, indexRepository,
                         false, firstUrl
                     );
-                    tasks.add(task);
                     task.fork();
                     task.join();
                 } else {
+                    log.info("Stopped indexing");
                     throw new ApplicationError("Индексация остановлена пользователем");
                 }
             }
         }
     }
 
-    public String indexPage() {
+    public void indexPage() {
         try {
             Connection.Response response = getResponse(url);
             Document document = response.parse();
@@ -146,8 +148,8 @@ public class PageRecursiveTask extends RecursiveTask<Boolean> {
                     .setContent(document.html())
             );
             appendLemma(page, document);
-            return "ok";
         } catch (Exception ex) {
+            log.info("Indexing one page", ex);
             throw new ApplicationError(ex.getMessage());
         }
     }
@@ -191,6 +193,7 @@ public class PageRecursiveTask extends RecursiveTask<Boolean> {
             }
             jdbcRepository.insertIndexBatch(indices);
         } catch (Exception ex) {
+            log.error("Append lemmas failed", ex);
             throw new ApplicationError("Ошибка лемматизации");
         }
     }
@@ -204,6 +207,7 @@ public class PageRecursiveTask extends RecursiveTask<Boolean> {
                     .referrer("https://www.google.com")
                     .execute();
         } catch (Exception ex) {
+            log.error("Connect to site failed", ex);
             throw new ApplicationError("Неуспешное соединение");
         }
     }
@@ -217,6 +221,7 @@ public class PageRecursiveTask extends RecursiveTask<Boolean> {
             return "/";
         }
         if (firstUrl == null) {
+            log.error("First url is empty");
             throw new ApplicationError("Начальный URL не может быть пустым");
         }
         return url.startsWith(firstUrl) ?

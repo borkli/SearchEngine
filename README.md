@@ -31,6 +31,7 @@
 * Hibernate
 * Lombok
 * Jsoup
+* Slf4j
 ***
 ## Локальный запуск проекта
 1. Установите СУБД MySQL и создайте БД *search_engine*
