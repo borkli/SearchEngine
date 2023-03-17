@@ -31,9 +31,4 @@ spring:
     hibernate:
       ddl-auto: update
     generate-ddl: true
-    show-sql: true
-hibernate:
-  jdbc:
-    batch_size: 50
-  order_inserts: true
-  order_updates: true
+    show-sql: false

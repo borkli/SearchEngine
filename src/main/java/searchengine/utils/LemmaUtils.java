@@ -1,5 +1,6 @@
 package searchengine.utils;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.english.EnglishLuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
@@ -12,10 +13,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.regex.Pattern;
 
+@Slf4j
 public class LemmaUtils {
 
     private static final String HREF_TAG = "a[href]";
-    private static final String HTML_SPACE = "<br>|<p>|&nbsp";
+    private static final String EXCESS_TAGS = "<br>|<p>|&[a-z]+;";
     private static final String SPACE = "\\s+";
     private static final String INVALID_SYMBOLS_RUS = "[^а-яё\\s]";
     private static final String INVALID_SYMBOLS_ENG = "[^a-z\\s]";
@@ -30,7 +32,8 @@ public class LemmaUtils {
             luceneMorphRus = new RussianLuceneMorphology();
             luceneMorphEng = new EnglishLuceneMorphology();
         } catch (Exception ex) {
-            throw new ApplicationError(ex.getMessage());
+            log.error("Create lemmatization", ex);
+            throw new ApplicationError("Создание лемматизатора не удалось");
         }
     }
 
@@ -54,28 +57,6 @@ public class LemmaUtils {
             lemmas, SERVICE_PARTS_ENG,
             INVALID_SYMBOLS_ENG, addPosition
         );
-        return lemmas;
-    }
-
-    public static HashMap<Integer, String> lemmatizationByPosition(String text) {
-        HashMap<Integer, String> lemmas = new HashMap<>();
-        if (text.isBlank()) {
-            return lemmas;
-        }
-        try {
-            LuceneMorphology luceneMorphRus = new RussianLuceneMorphology();
-            lemmatizationByPosition(
-                text, luceneMorphRus, lemmas,
-                SERVICE_PARTS_RUS, INVALID_SYMBOLS_RUS
-            );
-            LuceneMorphology luceneMorphEng = new EnglishLuceneMorphology();
-            lemmatizationByPosition(
-                text, luceneMorphEng, lemmas,
-                SERVICE_PARTS_ENG, INVALID_SYMBOLS_ENG
-            );
-        } catch (Exception ex) {
-            throw new ApplicationError(ex.getMessage());
-        }
         return lemmas;
     }
 
@@ -104,24 +85,6 @@ public class LemmaUtils {
         }
     }
 
-    private static void lemmatizationByPosition(String text, LuceneMorphology luceneMorph,
-                                                HashMap<Integer, String> lemmas,
-                                                Pattern serviceParts, String invalid) {
-        String[] words = textToArray(text, invalid);
-        for (int i = 0; i < words.length; i++) {
-            String wordFinal = words[i].trim();
-            if (wordFinal.isBlank()) {
-                continue;
-            }
-            List<String> info = luceneMorph.getMorphInfo(wordFinal);
-            if (info.isEmpty() || serviceParts.matcher(info.get(0)).find()) {
-                continue;
-            }
-            String lemma = luceneMorph.getNormalForms(wordFinal).get(0);
-            lemmas.put(i, lemma);
-        }
-    }
-
     public static String getLemma(String word) {
         String rusWord = word.toLowerCase()
             .replaceAll(INVALID_SYMBOLS_RUS, "").trim();
@@ -138,7 +101,7 @@ public class LemmaUtils {
     public static String cleanHtmlBody(Document document) {
         document.body().select(HREF_TAG).remove();
         String body = document.body().html()
-            .replaceAll(HTML_SPACE, " ");
+            .replaceAll(EXCESS_TAGS, " ");
         return Jsoup.clean(
             body, "", Safelist.none(),
             new Document.OutputSettings().prettyPrint(true)

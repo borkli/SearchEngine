@@ -1,8 +1,10 @@
 package searchengine.services;
 
+import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import searchengine.dto.ApiResponse;
 import searchengine.dto.SearchResult;
@@ -18,8 +20,12 @@ import searchengine.utils.SnippetUtils;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class SearchService {
+
+    private final int DEFAULT_OFFSET = 0;
+    private final int DEFAULT_LIMIT = 20;
 
     @Autowired
     private SiteRepository siteRepository;
@@ -42,11 +48,11 @@ public class SearchService {
             site == null ?
                 lemmaRepository.getByLemma(sourceLemmas.keySet()) :
                 lemmaRepository.getByLemma(site.getId(), sourceLemmas.keySet());
-        List<SitePage> matchPages = searchPages(existLemmas);
+        List<SitePage> matchPages = searchPages(existLemmas, filter);
         if (matchPages.isEmpty()) {
             return response;
         }
-        List<SearchResult> result = computeRelevance(
+        List<SearchResult> result = collectResultByRelevance(
             matchPages, existLemmas, sourceLemmas.keySet()
         );
         return response
@@ -61,6 +67,7 @@ public class SearchService {
                 url.substring(0, url.length() - 1) : url;
             site = siteRepository.getByUrl(url.trim());
             if (site == null) {
+                log.error("Site not found: " + url);
                 throw new ApplicationError("Сайт не найден");
             }
             if (site.getStatus() != SiteStatus.INDEXED) {
@@ -72,16 +79,18 @@ public class SearchService {
         return site;
     }
 
-    private List<SitePage> searchPages(List<Lemma> existLemmas) {
+    private List<SitePage> searchPages(List<Lemma> existLemmas, SearchFilter filter) {
         List<SitePage> matchPages = new ArrayList<>();
         for (int i = 0; i < existLemmas.size(); i++) {
             Lemma lemma = existLemmas.get(i);
             if (i == 0) {
-                matchPages = sitePageRepository.getByLemma(lemma.getId());
+                matchPages = sitePageRepository.getByLemma(
+                    lemma.getId(), getLimit(filter, existLemmas.size(), i)
+                );
             } else {
                 List<Long> ids = getIds(matchPages);
                 matchPages = sitePageRepository.getByLemma(
-                    lemma.getId(), ids
+                    lemma.getId(), ids, getLimit(filter, existLemmas.size(), i)
                 );
             }
             if (matchPages.isEmpty()) {
@@ -91,9 +100,20 @@ public class SearchService {
         return matchPages;
     }
 
-    private List<SearchResult> computeRelevance(List<SitePage> pages,
-                                                List<Lemma> existLemmas,
-                                                Set<String> sourceLemmas) {
+    private PageRequest getLimit(SearchFilter filter, int lemmasSize, int index) {
+        int offset = DEFAULT_OFFSET;
+        int limit = Integer.MAX_VALUE;
+        if (index == lemmasSize - 1) {
+            offset = filter.getOffset();
+            limit = filter.getLimit() != null ?
+                filter.getLimit() : DEFAULT_LIMIT;
+        }
+        return PageRequest.of(offset, limit);
+    }
+
+    private List<SearchResult> collectResultByRelevance(List<SitePage> pages,
+                                                        List<Lemma> existLemmas,
+                                                        Set<String> sourceLemmas) {
         List<SearchResult> result = new ArrayList<>();
         List<Long> pageIds = getIds(pages);
         int totalRelevance = indexRepository.totalRelevance(pageIds);
@@ -110,11 +130,14 @@ public class SearchService {
             }
             Site site = page.getSite();
             Document document = Jsoup.parse(page.getContent());
+            String title = document
+                .select("title")
+                .remove().text();
             String snippet = SnippetUtils.generateSnippet(document, sourceLemmas);
             result.add(
                 new SearchResult(
                     site.getUrl(), site.getName(),
-                    page.getPath(), document.title(),
+                    page.getPath(), title,
                     snippet, pageRelevance / totalRelevance
                 )
             );

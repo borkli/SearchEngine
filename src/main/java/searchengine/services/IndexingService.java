@@ -1,5 +1,6 @@
 package searchengine.services;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
@@ -18,6 +19,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 
+@Slf4j
 @Service
 public class IndexingService {
 
@@ -42,6 +44,7 @@ public class IndexingService {
         if (!tasks.isEmpty()) {
             throw new ApplicationError("Индексация уже запущена");
         }
+
         List<SiteConfig> sitesList = getSites();
         for (SiteConfig siteConfig : sitesList) {
             checkSiteConfig(siteConfig);
@@ -87,6 +90,7 @@ public class IndexingService {
             return siteRepository.saveAndFlush(site);
         }
         if (site.getId() == null) {
+            log.error("Site not found: " + url);
             throw new ApplicationError("Сайт не найден");
         }
         return site;
@@ -134,17 +138,18 @@ public class IndexingService {
     private List<SiteConfig> getSites() {
         List<SiteConfig> sitesList = sites.getSites();
         if (CollectionUtils.isEmpty(sitesList)) {
-            throw new RuntimeException("error_empty_sites");
+            log.error("SiteConfig list is empty");
+            throw new ApplicationError("Список сайтов не может быть пустым");
         }
         return sitesList;
     }
 
     private void checkSiteConfig(SiteConfig siteConfig) {
         if (siteConfig.getUrl().isBlank()) {
-            throw new RuntimeException("error_empty_url");
+            throw new ApplicationError("URL не может быть пустым");
         }
         if (siteConfig.getName().isBlank()) {
-            throw new RuntimeException("error_empty_name");
+            throw new ApplicationError("Название сайта не может быть пустым");
         }
     }
 }
