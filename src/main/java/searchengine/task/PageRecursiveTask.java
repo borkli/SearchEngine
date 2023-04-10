@@ -1,15 +1,24 @@
 package searchengine.task;
 
 import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import searchengine.model.*;
+import searchengine.model.Index;
+import searchengine.model.Lemma;
+import searchengine.model.Site;
+import searchengine.model.SitePage;
+import searchengine.model.SiteStatus;
 import searchengine.model.error.ApplicationError;
-import searchengine.repository.*;
+import searchengine.repository.IndexRepository;
+import searchengine.repository.JdbcRepository;
+import searchengine.repository.LemmaRepository;
+import searchengine.repository.SitePageRepository;
+import searchengine.repository.SiteRepository;
 import searchengine.utils.LemmaUtils;
 
 import java.time.LocalDateTime;
@@ -22,25 +31,13 @@ import java.util.regex.Pattern;
 
 @Slf4j
 @AllArgsConstructor
+@RequiredArgsConstructor
 public class PageRecursiveTask extends RecursiveTask<Boolean> {
 
     private static final int BAD_CODE = 400;
     private static final long TIMEOUT_MILLIS = TimeUnit.SECONDS.toMillis(2);
     private static final Pattern EXCESS_LINK = Pattern.compile("(png|pdf|jpg|gif|#)");
     private static boolean runIndexing = true;
-
-    public PageRecursiveTask(Site site, String url,
-                             SiteRepository siteRepository,
-                             SitePageRepository sitePageRepository,
-                             LemmaRepository lemmaRepository,
-                             JdbcRepository jdbcRepository) {
-        this.site = site;
-        this.url = url;
-        this.siteRepository = siteRepository;
-        this.sitePageRepository = sitePageRepository;
-        this.lemmaRepository = lemmaRepository;
-        this.jdbcRepository = jdbcRepository;
-    }
 
     private final Site site;
     private final String url;
@@ -49,6 +46,7 @@ public class PageRecursiveTask extends RecursiveTask<Boolean> {
     private final LemmaRepository lemmaRepository;
     private final JdbcRepository jdbcRepository;
     private IndexRepository indexRepository;
+
     private boolean isFirst = true;
     private String firstUrl;
 

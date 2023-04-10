@@ -1,14 +1,18 @@
 package searchengine.services;
 
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import searchengine.dto.ApiResponse;
+import searchengine.dto.SearchFilter;
 import searchengine.dto.SearchResult;
-import searchengine.model.*;
+import searchengine.model.Lemma;
+import searchengine.model.Site;
+import searchengine.model.SitePage;
+import searchengine.model.SiteStatus;
 import searchengine.model.error.ApplicationError;
 import searchengine.repository.IndexRepository;
 import searchengine.repository.LemmaRepository;
@@ -17,24 +21,25 @@ import searchengine.repository.SiteRepository;
 import searchengine.utils.LemmaUtils;
 import searchengine.utils.SnippetUtils;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
+@AllArgsConstructor
 public class SearchService {
 
     private final int DEFAULT_OFFSET = 0;
     private final int DEFAULT_LIMIT = 20;
 
-    @Autowired
-    private SiteRepository siteRepository;
-    @Autowired
-    private SitePageRepository sitePageRepository;
-    @Autowired
-    private LemmaRepository lemmaRepository;
-    @Autowired
-    private IndexRepository indexRepository;
+    private final SiteRepository siteRepository;
+    private final SitePageRepository sitePageRepository;
+    private final LemmaRepository lemmaRepository;
+    private final IndexRepository indexRepository;
 
     public ApiResponse search(SearchFilter filter) {
         if (filter.getQuery() == null || filter.getQuery().trim().isBlank()) {
