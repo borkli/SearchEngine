@@ -20,7 +20,7 @@ server:
 
 spring:
   datasource:
-    jdbc-url: jdbc:mysql://localhost:3306/search_engine?useUnicode=true&characterEncoding=UTF-8&useSSL=false&jdbcCompliantTruncation=false&zeroDateTimeBehavior=convertToNull&useAffectedRows=true&&autoReconnect=true
+    jdbc-url: jdbc:mysql://localhost:3306/search_engine?useUnicode=true&characterEncoding=UTF-8&useSSL=false&jdbcCompliantTruncation=false&zeroDateTimeBehavior=convertToNull&useAffectedRows=true&&autoReconnect=true&allowPublicKeyRetrieval=true
     username: #USER_NAME
     password: #YOUR_PASSWORD
     driverClassName: com.mysql.cj.jdbc.Driver
