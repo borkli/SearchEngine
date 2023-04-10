@@ -37,8 +37,8 @@ public interface IndexRepository extends JpaRepository<Index, Long> {
     @Query(
         value = "DELETE i FROM `index` i " +
             "JOIN site_page p ON i.page_id = p.id " +
-            "WHERE p.site_id = :siteId",
+            "WHERE p.site_id IN (:sites)",
         nativeQuery = true
     )
-    void deleteBySiteId(Long siteId);
+    void deleteBySiteId(List<Long> sites);
 }

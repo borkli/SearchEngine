@@ -30,7 +30,7 @@ public class StatisticsService {
 
         List<DetailedStatisticsItem> detailed = new ArrayList<>();
         for (Site site : sites) {
-            long pageCountBy = sitePageRepository.countBy(site.getId());
+            long pageCountBy = sitePageRepository.countBySite(site.getId());
             long lemmaCountBy = lemmaRepository.countBy(site.getId());
             total.setPages(total.getPages() + pageCountBy)
                 .setLemmas(total.getLemmas() + lemmaCountBy);

@@ -17,6 +17,7 @@ import searchengine.repository.SiteRepository;
 import searchengine.task.PageRecursiveTask;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -43,55 +44,18 @@ public class IndexingService {
             throw new ApplicationError("Индексация уже запущена");
         }
 
+        List<String> actualUrls = new ArrayList<>();
         List<SiteConfig> sitesList = getSites();
         for (SiteConfig siteConfig : sitesList) {
             checkSiteConfig(siteConfig);
+            actualUrls.add(siteConfig.getUrl());
             executor.execute(
                 () -> parsePages(siteConfig)
             );
         }
-    }
-
-    public void parsePages(SiteConfig siteConfig) {
-        Site site = updateSite(siteConfig, true);
-        PageRecursiveTask task = new PageRecursiveTask(
-            site, siteConfig.getUrl(),
-            siteRepository, sitePageRepository,
-            lemmaRepository, jdbcRepository
+        executor.execute(
+            () -> deleteNotActualSites(actualUrls)
         );
-        tasks.add(task);
-        ForkJoinPool forkJoinPool = new ForkJoinPool();
-        forkJoinPool.submit(task);
-        if (task.join()) {
-            siteRepository.updateStatus(SiteStatus.INDEXED.name(), site.getId());
-        }
-        tasks.clear();
-    }
-
-    private Site updateSite(SiteConfig siteConfig, boolean delete) {
-        String url = siteConfig.getUrl();
-        Site site = siteRepository.getByUrl(url);
-        if (site == null) {
-            site = new Site(
-                siteConfig.getUrl(), siteConfig.getName(),
-                SiteStatus.INDEXING, LocalDateTime.now(), ""
-            );
-            return siteRepository.saveAndFlush(site);
-        } else if (delete) {
-            indexRepository.deleteBySiteId(site.getId());
-            lemmaRepository.deleteBySiteId(site.getId());
-            sitePageRepository.deleteBySiteId(site.getId());
-            site.setName(siteConfig.getName())
-                .setStatus(SiteStatus.INDEXING)
-                .setStatusTime(LocalDateTime.now())
-                .setLastError("");
-            return siteRepository.saveAndFlush(site);
-        }
-        if (site.getId() == null) {
-            log.error("Site not found: " + url);
-            throw new ApplicationError("Сайт не найден");
-        }
-        return site;
     }
 
     public void stopIndexing() {
@@ -133,6 +97,59 @@ public class IndexingService {
         }
     }
 
+    private void parsePages(SiteConfig siteConfig) {
+        Site site = updateSite(siteConfig, true);
+        PageRecursiveTask task = new PageRecursiveTask(
+            site, siteConfig.getUrl(),
+            siteRepository, sitePageRepository,
+            lemmaRepository, jdbcRepository
+        );
+        tasks.add(task);
+        ForkJoinPool forkJoinPool = new ForkJoinPool();
+        forkJoinPool.submit(task);
+        if (task.join()) {
+            siteRepository.updateStatus(SiteStatus.INDEXED.name(), site.getId());
+        }
+        tasks.clear();
+    }
+
+    private Site updateSite(SiteConfig siteConfig, boolean delete) {
+        String url = siteConfig.getUrl();
+        Site site = siteRepository.getByUrl(url);
+        if (site == null) {
+            site = new Site(
+                siteConfig.getUrl(), siteConfig.getName(),
+                SiteStatus.INDEXING, LocalDateTime.now(), ""
+            );
+            return siteRepository.saveAndFlush(site);
+        } else if (delete) {
+            indexRepository.deleteBySiteId(List.of(site.getId()));
+            lemmaRepository.deleteBySiteId(List.of(site.getId()));
+            sitePageRepository.deleteBySiteId(List.of(site.getId()));
+            site.setName(siteConfig.getName())
+                .setStatus(SiteStatus.INDEXING)
+                .setStatusTime(LocalDateTime.now())
+                .setLastError("");
+            return siteRepository.saveAndFlush(site);
+        }
+        if (site.getId() == null) {
+            log.error("Site not found: " + url);
+            throw new ApplicationError("Сайт не найден");
+        }
+        return site;
+    }
+
+    private void deleteNotActualSites(List<String> actualUrls) {
+        List<Long> ids = siteRepository.getNotActualSites(actualUrls);
+        if (ids.isEmpty()) {
+            return;
+        }
+        indexRepository.deleteBySiteId(ids);
+        lemmaRepository.deleteBySiteId(ids);
+        sitePageRepository.deleteBySiteId(ids);
+        siteRepository.delete(ids);
+    }
+
     private List<SiteConfig> getSites() {
         List<SiteConfig> sitesList = sites.getSites();
         if (CollectionUtils.isEmpty(sitesList)) {
@@ -143,11 +160,15 @@ public class IndexingService {
     }
 
     private void checkSiteConfig(SiteConfig siteConfig) {
-        if (siteConfig.getUrl().isBlank()) {
-            throw new ApplicationError("URL не может быть пустым");
-        }
-        if (siteConfig.getName().isBlank()) {
+        if (siteConfig.getName() == null || siteConfig.getName().isBlank()) {
             throw new ApplicationError("Название сайта не может быть пустым");
         }
+        String url = siteConfig.getUrl();
+        if (url == null || url.isBlank()) {
+            throw new ApplicationError("URL не может быть пустым");
+        }
+        siteConfig.setUrl(
+            url.endsWith("/") ? url.substring(0, url.length() - 1) : url
+        );
     }
 }

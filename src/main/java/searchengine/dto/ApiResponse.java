@@ -15,12 +15,6 @@ public class ApiResponse {
         this.result = result;
     }
 
-    public ApiResponse(boolean result, int count, List<SearchResult> data) {
-        this.result = result;
-        this.count = count;
-        this.data = data;
-    }
-
     private boolean result;
     private int count;
     private List<SearchResult> data;

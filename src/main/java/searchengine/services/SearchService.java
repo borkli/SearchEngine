@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import searchengine.dto.ApiResponse;
 import searchengine.dto.SearchFilter;
@@ -46,14 +47,19 @@ public class SearchService {
             throw new ApplicationError("Поисковый запрос не может быть пустым");
         }
         String query = filter.getQuery().trim();
-        ApiResponse response = new ApiResponse(true, 0, new ArrayList<>());
+        ApiResponse response = new ApiResponse(true);
         Site site = searchSite(filter.getSite());
         HashMap<String, Integer> sourceLemmas = LemmaUtils.lemmatization(query, false);
         List<Lemma> existLemmas =
             site == null ?
                 lemmaRepository.getByLemma(sourceLemmas.keySet()) :
                 lemmaRepository.getByLemma(site.getId(), sourceLemmas.keySet());
-        List<SitePage> matchPages = searchPages(existLemmas, filter);
+        if (existLemmas.isEmpty()) {
+            return response
+                .setCount(0)
+                .setData(new ArrayList<>());
+        }
+        List<SitePage> matchPages = searchPages(existLemmas, filter, response);
         if (matchPages.isEmpty()) {
             return response;
         }
@@ -61,7 +67,6 @@ public class SearchService {
             matchPages, existLemmas, sourceLemmas.keySet()
         );
         return response
-            .setCount(result.size())
             .setData(result);
     }
 
@@ -84,46 +89,59 @@ public class SearchService {
         return site;
     }
 
-    private List<SitePage> searchPages(List<Lemma> existLemmas, SearchFilter filter) {
+    private List<SitePage> searchPages(List<Lemma> existLemmas,
+                                       SearchFilter filter,
+                                       ApiResponse response) {
         List<SitePage> matchPages = new ArrayList<>();
+        List<Long> idsByLemma = sitePageRepository.getIdsByLemma(
+            existLemmas.get(0).getId(), Sort.by("id").ascending()
+        );
+        if (idsByLemma.isEmpty()) {
+            return matchPages;
+        }
         for (int i = 0; i < existLemmas.size(); i++) {
             Lemma lemma = existLemmas.get(i);
-            if (i == 0) {
-                matchPages = sitePageRepository.getByLemma(
-                    lemma.getId(), getLimit(filter, existLemmas.size(), i)
-                );
+            if (i != existLemmas.size() - 1) {
+                if (i == 0) {
+                    continue;
+                }
+                idsByLemma = sitePageRepository.getIdsByLemma(lemma.getId(), idsByLemma);
             } else {
-                List<Long> ids = getIds(matchPages);
+                response.setCount(
+                    sitePageRepository.countByLemma(lemma.getId(), idsByLemma)
+                );
                 matchPages = sitePageRepository.getByLemma(
-                    lemma.getId(), ids, getLimit(filter, existLemmas.size(), i)
+                    lemma.getId(), idsByLemma, getLimit(filter)
                 );
             }
-            if (matchPages.isEmpty()) {
+            if (idsByLemma.isEmpty()) {
                 break;
             }
         }
         return matchPages;
     }
 
-    private PageRequest getLimit(SearchFilter filter, int lemmasSize, int index) {
-        int offset = DEFAULT_OFFSET;
-        int limit = Integer.MAX_VALUE;
-        if (index == lemmasSize - 1) {
-            offset = filter.getOffset();
-            limit = filter.getLimit() != null ?
-                filter.getLimit() : DEFAULT_LIMIT;
-        }
-        return PageRequest.of(offset, limit);
+    private PageRequest getLimit(SearchFilter filter) {
+        int offset = filter.getOffset() != null ?
+            filter.getOffset() : DEFAULT_OFFSET;
+        int limit = filter.getLimit() != null ?
+            filter.getLimit() : DEFAULT_LIMIT;
+        return PageRequest.of(
+            offset != 0 ? limit / offset : 0, limit
+        );
     }
 
     private List<SearchResult> collectResultByRelevance(List<SitePage> pages,
                                                         List<Lemma> existLemmas,
                                                         Set<String> sourceLemmas) {
         List<SearchResult> result = new ArrayList<>();
-        List<Long> pageIds = getIds(pages);
+        List<Long> pageIds = pages.stream()
+            .map(SitePage::getId).toList();
         int totalRelevance = indexRepository.totalRelevance(pageIds);
         Map<Long, Double> relevanceByLemmas = indexRepository
-            .relevanceByLemmas(pageIds, getIds(existLemmas))
+            .relevanceByLemmas(
+                pageIds, existLemmas.stream().map(Lemma::getId).toList()
+            )
             .stream()
             .collect(Collectors.toMap(
                 o -> (Long) o[0], o -> (Double) o[1]
@@ -148,18 +166,5 @@ public class SearchService {
             );
         }
         return result;
-    }
-
-    private <T> List<Long> getIds(List<T> objects) {
-        return objects.stream().map(
-            obj -> {
-                if (obj instanceof SitePage) {
-                    return ((SitePage) obj).getId();
-                } else if (obj instanceof Lemma) {
-                    return ((Lemma) obj).getId();
-                }
-                throw new ApplicationError("Неподдерживаемый тип");
-            }
-        ).toList();
     }
 }
