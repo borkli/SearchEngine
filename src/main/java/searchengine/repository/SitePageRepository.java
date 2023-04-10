@@ -1,6 +1,7 @@
 package searchengine.repository;
 
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -28,11 +29,25 @@ public interface SitePageRepository extends JpaRepository<SitePage, Long> {
     SitePage getByPath(String path, Long siteId);
 
     @Query(
-        value = "SELECT sp FROM SitePage sp " +
+        value = "SELECT sp.id FROM SitePage sp " +
             "JOIN Index i ON sp.id = i.page.id " +
             "WHERE i.lemma.id = :lemmaId"
     )
-    List<SitePage> getByLemma(Long lemmaId, Pageable pageable);
+    List<Long> getIdsByLemma(Long lemmaId, Sort sort);
+
+    @Query(
+        value = "SELECT sp.id FROM SitePage sp " +
+            "JOIN Index i ON sp.id = i.page.id " +
+            "WHERE i.lemma.id = :lemmaId AND sp.id IN (:pageIds)"
+    )
+    List<Long> getIdsByLemma(Long lemmaId, List<Long> pageIds);
+
+    @Query(
+        value = "SELECT COUNT(sp.id) FROM SitePage sp " +
+            "JOIN Index i ON sp.id = i.page.id " +
+            "WHERE i.lemma.id = :lemmaId AND sp.id IN (:pageIds)"
+    )
+    int countByLemma(Long lemmaId, List<Long> pageIds);
 
     @Query(
         value = "SELECT sp FROM SitePage sp " +
@@ -45,7 +60,7 @@ public interface SitePageRepository extends JpaRepository<SitePage, Long> {
         value = "SELECT COUNT(*) FROM site_page WHERE site_id = :siteId",
         nativeQuery = true
     )
-    long countBy(Long siteId);
+    long countBySite(Long siteId);
 
     @Modifying
     @Query(
@@ -75,8 +90,8 @@ public interface SitePageRepository extends JpaRepository<SitePage, Long> {
 
     @Modifying
     @Query(
-        value = "DELETE FROM site_page WHERE site_id = :siteId",
+        value = "DELETE FROM site_page WHERE site_id IN (:sites)",
         nativeQuery = true
     )
-    void deleteBySiteId(Long siteId);
+    void deleteBySiteId(List<Long> sites);
 }

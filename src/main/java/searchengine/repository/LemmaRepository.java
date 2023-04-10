@@ -45,8 +45,8 @@ public interface LemmaRepository extends JpaRepository<Lemma, Long> {
 
     @Modifying
     @Query(
-        value = "DELETE FROM lemma WHERE site_id = :siteId",
+        value = "DELETE FROM lemma WHERE site_id IN (:sites)",
         nativeQuery = true
     )
-    void deleteBySiteId(Long siteId);
+    void deleteBySiteId(List<Long> sites);
 }
