@@ -1,26 +1,26 @@
 package searchengine.controllers;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import lombok.AllArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import searchengine.dto.ApiResponse;
+import searchengine.dto.SearchFilter;
 import searchengine.dto.statistics.StatisticsResponse;
-import searchengine.model.SearchFilter;
 import searchengine.services.IndexingService;
 import searchengine.services.SearchService;
 import searchengine.services.StatisticsService;
 
 @RestController
 @RequestMapping("/api/")
+@AllArgsConstructor
 public class ApiController extends CommonController {
 
-    @Autowired
-    private StatisticsService statisticsService;
-    @Autowired
-    private IndexingService indexingService;
-    @Autowired
-    private SearchService searchService;
+    private final StatisticsService statisticsService;
+    private final IndexingService indexingService;
+    private final SearchService searchService;
 
     @GetMapping("statistics")
     public StatisticsResponse statistics() {
@@ -28,25 +28,25 @@ public class ApiController extends CommonController {
     }
 
     @GetMapping("startIndexing")
-    public ResponseEntity<?> startIndexing() {
+    public ApiResponse startIndexing() {
         indexingService.startIndexing();
         return okResponse();
     }
 
     @GetMapping("stopIndexing")
-    public ResponseEntity<?> stopIndexing() {
+    public ApiResponse stopIndexing() {
         indexingService.stopIndexing();
         return okResponse();
     }
 
     @PostMapping("indexPage")
-    public ResponseEntity<?> indexPage(@RequestParam String url) {
+    public ApiResponse indexPage(@RequestParam String url) {
         indexingService.indexPage(url);
         return okResponse();
     }
 
     @GetMapping("search")
-    public ResponseEntity<ApiResponse> search(SearchFilter filter) {
-        return new ResponseEntity<>(searchService.search(filter), HttpStatus.OK);
+    public ApiResponse search(SearchFilter filter) {
+        return searchService.search(filter);
     }
 }

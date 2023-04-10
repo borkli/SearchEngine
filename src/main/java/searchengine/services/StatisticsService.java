@@ -1,6 +1,6 @@
 package searchengine.services;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import searchengine.dto.statistics.DetailedStatisticsItem;
 import searchengine.dto.statistics.StatisticsData;
@@ -16,14 +16,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Service
+@AllArgsConstructor
 public class StatisticsService {
 
-    @Autowired
-    private SiteRepository siteRepository;
-    @Autowired
-    private SitePageRepository sitePageRepository;
-    @Autowired
-    private LemmaRepository lemmaRepository;
+    private final SiteRepository siteRepository;
+    private final SitePageRepository sitePageRepository;
+    private final LemmaRepository lemmaRepository;
 
     public StatisticsResponse getStatistics() {
         List<Site> sites = siteRepository.findAll();

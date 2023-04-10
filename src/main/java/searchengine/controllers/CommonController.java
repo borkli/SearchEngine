@@ -8,10 +8,8 @@ import searchengine.model.error.ApplicationError;
 
 public class CommonController {
 
-    public ResponseEntity<ApiResponse> okResponse() {
-        return new ResponseEntity<>(
-            new ApiResponse(true), HttpStatus.OK
-        );
+    public ApiResponse okResponse() {
+        return new ApiResponse(true);
     }
 
     @ExceptionHandler(Exception.class)

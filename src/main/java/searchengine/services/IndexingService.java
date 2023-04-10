@@ -1,7 +1,7 @@
 package searchengine.services;
 
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import searchengine.config.SiteConfig;
@@ -9,11 +9,14 @@ import searchengine.config.SitesList;
 import searchengine.model.Site;
 import searchengine.model.SiteStatus;
 import searchengine.model.error.ApplicationError;
-import searchengine.repository.*;
+import searchengine.repository.IndexRepository;
+import searchengine.repository.JdbcRepository;
+import searchengine.repository.LemmaRepository;
+import searchengine.repository.SitePageRepository;
+import searchengine.repository.SiteRepository;
 import searchengine.task.PageRecursiveTask;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
@@ -21,24 +24,19 @@ import java.util.concurrent.ForkJoinPool;
 
 @Slf4j
 @Service
+@AllArgsConstructor
 public class IndexingService {
 
     private final int PROCESSORS = Runtime.getRuntime().availableProcessors();
-    private final Executor executor = Executors.newFixedThreadPool(PROCESSORS);
-    private List<PageRecursiveTask> tasks = new ArrayList<>();
 
-    @Autowired
-    private SitesList sites;
-    @Autowired
-    private SiteRepository siteRepository;
-    @Autowired
-    private SitePageRepository sitePageRepository;
-    @Autowired
-    private LemmaRepository lemmaRepository;
-    @Autowired
-    private IndexRepository indexRepository;
-    @Autowired
-    private JdbcRepository jdbcRepository;
+    private final Executor executor = Executors.newFixedThreadPool(PROCESSORS);
+    private final SitesList sites;
+    private final SiteRepository siteRepository;
+    private final SitePageRepository sitePageRepository;
+    private final LemmaRepository lemmaRepository;
+    private final IndexRepository indexRepository;
+    private final JdbcRepository jdbcRepository;
+    private List<PageRecursiveTask> tasks;
 
     public void startIndexing() {
         if (!tasks.isEmpty()) {
